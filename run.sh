@@ -5,6 +5,7 @@ CONTAINER_RUNTIME=
 CONTAINER_NAME=
 WORKSPACE_DIR=
 RUN_OPTIONS=()
+EXTRA_RUNTIME_OPTIONS=()
 PERSISTENCE_MODE=temporary
 PERSISTENCE_STATUS="🗑️ temporary"
 INSECURE_MODE=0
@@ -12,13 +13,15 @@ COMMAND=()
 
 usage() {
   cat <<'EOF'
-Usage: run.sh [--persistent|-p] [--insecure] [--] [command [args...]]
+Usage: run.sh [--persistent|-p] [--insecure] [--runtime-option ARG]... [--] [command [args...]]
 
 Launch the development container for the current directory.
 
 Options:
   -p, --persistent  Keep the container after it exits
   --insecure        Enable privileged container options
+  --runtime-option ARG
+                    Pass one argument to podman/docker run (repeatable)
   -h, --help        Show this help message
   --                Stop processing launcher options
 
@@ -29,6 +32,7 @@ EOF
 
 parse_options() {
   RUN_OPTIONS=(--rm)
+  EXTRA_RUNTIME_OPTIONS=()
   PERSISTENCE_MODE=temporary
   PERSISTENCE_STATUS="🗑️ temporary"
   INSECURE_MODE=0
@@ -47,6 +51,22 @@ parse_options() {
         ;;
       --insecure)
         INSECURE_MODE=1
+        shift
+        ;;
+      --runtime-option)
+        if (($# < 2)) || [[ -z "$2" ]]; then
+          printf 'Error: --runtime-option requires a non-empty argument.\n' >&2
+          return 2
+        fi
+        EXTRA_RUNTIME_OPTIONS+=("$2")
+        shift 2
+        ;;
+      --runtime-option=*)
+        if [[ -z "${1#*=}" ]]; then
+          printf 'Error: --runtime-option requires a non-empty argument.\n' >&2
+          return 2
+        fi
+        EXTRA_RUNTIME_OPTIONS+=("${1#*=}")
         shift
         ;;
       --)
@@ -161,7 +181,7 @@ create_container() {
   printf 'Creating new %s container %s...\n' "$PERSISTENCE_STATUS" "$CONTAINER_NAME"
 
   "$CONTAINER_RUNTIME" run -it "${RUN_OPTIONS[@]}" "${container_options[@]}" \
-    devpod "${COMMAND[@]}"
+    "${EXTRA_RUNTIME_OPTIONS[@]}" devpod "${COMMAND[@]}"
 }
 
 main() {

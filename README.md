@@ -52,6 +52,15 @@ devpod --insecure -- opencode
 
 Unknown launcher options are rejected. Arguments after the command are passed through to it.
 
+To pass custom options to `podman run` or `docker run`, repeat `--runtime-option` for each argument:
+
+```bash
+devpod --runtime-option=--network=host --runtime-option=--cpus=4
+devpod --runtime-option --env --runtime-option 'MY_VAR=hello world' -- opencode
+```
+
+Each value is passed as a single argument, without shell expansion or splitting. These arguments are appended after the launcher's built-in container options and before the image name. They also work with the Docker fallback and apply only when creating a new container, not when entering or restarting an existing one.
+
 ## Container Modes
 
 | Mode | Invocation | Behavior |
