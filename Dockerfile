@@ -80,7 +80,7 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Modify this and rebuild image to get the latest opencode
-RUN echo "1.9.4"
-RUN npm i -g opencode-ai
+RUN echo "2.3.0"
+RUN npm install -g @opencode/cli
 
 CMD ["/bin/bash"]
