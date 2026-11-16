@@ -20,6 +20,7 @@ Launch the development container for the current directory.
 Options:
   -p, --persistent  Keep the container after it exits
   --insecure        Enable privileged container options
+  --wayland         Enable Wayland support
   --runtime-option ARG
                     Pass one argument to podman/docker run (repeatable)
   -h, --help        Show this help message
@@ -51,6 +52,10 @@ parse_options() {
         ;;
       --insecure)
         INSECURE_MODE=1
+        shift
+        ;;
+      --wayland)
+        WAYLAND=1
         shift
         ;;
       --runtime-option)
@@ -147,17 +152,15 @@ prepare_host_directories() {
 }
 
 create_container() {
+  printf 'Creating new %s container %s...\n' "$PERSISTENCE_STATUS" "$CONTAINER_NAME"
+
   local container_options=(
     --name "$CONTAINER_NAME"
     --hostname "$CONTAINER_NAME"
-    -v /tmp/.X11-unix:/tmp/.X11-unix
-    -v /dev/dri/card0:/dev/dri/card0
-    -v /dev/dri/renderD128:/dev/dri/renderD128
+    #--network host
     -v /etc/timezone:/etc/timezone:ro
-    --device /dev/dri:/dev/dri
-    --device /dev/snd:/dev/snd
+    -v /etc/localtime:/etc/localtime:ro
     --env "DISPLAY=${DISPLAY:-}"
-    --env "DEVPOD_CONTAINER_NAME=$CONTAINER_NAME"
     --env "DEVPOD_PERSISTENCE=$PERSISTENCE_MODE"
     --env "INSECURE=$INSECURE_MODE"
     --env QT_X11_NO_MITSHM=1
@@ -168,6 +171,19 @@ create_container() {
     -w "/$WORKSPACE_DIR"
   )
 
+  if ((WAYLAND)); then
+    container_options+=(
+      -v /dev/shm:/dev/shm
+      --env WAYLAND_DISPLAY=$WAYLAND_DISPLAY
+      --env XDG_RUNTIME_DIR=/tmp 
+      -v $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY:/tmp/$WAYLAND_DISPLAY:ro
+      -v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro
+      --security-opt label=disable
+    )
+    echo "⚠️ You selected Wayland support, in order for the display to work you must MANUALLY allow container access to the Wayland socket, run:"
+    echo "chmod 666 $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
+  fi
+
   if ((INSECURE_MODE)); then
     container_options+=(
       --privileged
@@ -177,8 +193,6 @@ create_container() {
       --security-opt label=disable
     )
   fi
-
-  printf 'Creating new %s container %s...\n' "$PERSISTENCE_STATUS" "$CONTAINER_NAME"
 
   "$CONTAINER_RUNTIME" run -it "${RUN_OPTIONS[@]}" "${container_options[@]}" \
     "${EXTRA_RUNTIME_OPTIONS[@]}" devpod "${COMMAND[@]}"
